@@ -29,4 +29,4 @@ services:
       - key: NOTIFY_EMAIL
         value: jack11230@gmail.com
       - key: RESEND_FROM
-        value: "Wolcowitz Hotline <onboarding@resend.dev>"
+        value: "Wolcowitz Family Hotline <hotline@countrycravesweets.com>"
