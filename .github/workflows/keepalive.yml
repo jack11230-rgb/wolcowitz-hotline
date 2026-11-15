@@ -11,4 +11,4 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - run: curl -fsS --max-time 60 https://wolcowitz-hotline.onrender.com/health || true
+      - run: curl -fsS --max-time 60 https://wolcowitz-hotline-davz.onrender.com/health || true
