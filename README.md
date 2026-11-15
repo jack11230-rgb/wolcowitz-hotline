@@ -3,8 +3,8 @@
 Twilio Voice webhook app for the family hotline (+1 620-634-1542).
 
 - `POST /voice` – main menu (set as the Twilio number's "A call comes in" webhook).
-- 1 / 3 – live conference rooms `mishnayos` and `shmiras-haloshon`.
-- 2, 4, 5, 6, 7 – recorded sections, newest first; press 1 for the previous recording, * for the menu.
+- 1 / 2 – live conference rooms `mishnayos` and `shmiras-haloshon`.
+- 3, 4, 5, 6, 7 – recorded sections (3 children, 4 teen girls, 5 teen boys, 6 events, 7 daily lesson), newest first; press 1 for the previous recording, * for the menu.
 - 8 – leave a message (saved to the inbox; Jack gets an email with a link).
 - 9 – admin (PIN in the `ADMIN_PIN` env var): record a new section recording, or review inbox
   messages and publish one to a section.

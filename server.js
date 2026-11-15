@@ -12,8 +12,11 @@ const TW_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
 const RESEND_KEY = process.env.RESEND_API_KEY || '';
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL || '';
 const RESEND_FROM = process.env.RESEND_FROM || 'Wolcowitz Hotline <onboarding@resend.dev>';
-const SECTIONS = { '2': "Children's updates", '4': 'Teen girl updates', '5': 'Teen boy updates', '6': 'Upcoming events', '7': 'Daily lesson' };
-const ROOMS = { '1': ['mishnayos', 'join_mishnayos'], '3': ['shmiras-haloshon', 'join_shmiras'] };
+// Menu digit -> stored section key. Recordings are stored by key, not digit, so menu changes never move them.
+const SECTIONS = { '3': 'children', '4': 'teen-girls', '5': 'teen-boys', '6': 'events', '7': 'daily-lesson' };
+const ROOMS = { '1': ['mishnayos', 'join_mishnayos'], '2': ['shmiras-haloshon', 'join_shmiras'] };
+// Old digit-keyed rows (before the 2<->3 swap, children's updates were digit 2).
+const LEGACY = { '2': 'children', '4': 'teen-girls', '5': 'teen-boys', '6': 'events', '7': 'daily-lesson' };
 
 // ---------- storage (Postgres, or memory for local tests) ----------
 let db;
@@ -27,6 +30,10 @@ if (process.env.DATABASE_URL) {
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(), twilio_url TEXT, recording_sid TEXT,
         audio BYTEA, content_type TEXT, duration INT, from_number TEXT, source_id INT)`);
       await pool.query('CREATE INDEX IF NOT EXISTS recordings_section_idx ON recordings(section, created_at DESC, id DESC)');
+      for (const [d, key] of Object.entries(LEGACY)) {
+        const r = await pool.query('UPDATE recordings SET section=$1 WHERE section=$2', [key, d]);
+        if (r.rowCount) console.log(`Migrated ${r.rowCount} recording(s) from digit ${d} to section ${key}`);
+      }
     },
     async nth(section, i) {
       const r = await pool.query('SELECT id, token, section, created_at, twilio_url, duration, from_number FROM recordings WHERE section=$1 ORDER BY created_at DESC, id DESC OFFSET $2 LIMIT 1', [section, i]);
@@ -124,7 +131,7 @@ tw.all('/menu', (req, res) => {
 tw.all('/section', async (req, res) => {
   const s = req.p.s; const i = Math.max(0, Number(req.p.i || 0));
   if (!SECTIONS[s]) return twiml(res, redirect('/voice'));
-  const r = await db.nth(s, i);
+  const r = await db.nth(SECTIONS[s], i);
   if (!r) return twiml(res, audio(i === 0 ? 'no_recording' : 'no_more') + redirect('/voice'));
   twiml(res, `<Gather input="dtmf" numDigits="1" timeout="8" action="${url('/section-nav', { s, i })}" method="POST"><Play>${url(`/r/${r.token}.mp3`)}</Play>${audio('prev_prompt')}</Gather>${redirect('/voice')}`);
 });
@@ -195,8 +202,8 @@ tw.all('/admin-inbox-choice', async (req, res) => {
   if (SECTIONS[d]) {
     const src = await db.byId(id);
     if (src) {
-      await db.insert({ token: newToken(), section: d, twilio_url: src.twilio_url, recording_sid: src.recording_sid, audio: src.audio, content_type: src.content_type, duration: src.duration, from_number: src.from_number, source_id: src.id });
-      console.log(`Published inbox message ${src.id} to section ${d}`);
+      await db.insert({ token: newToken(), section: SECTIONS[d], twilio_url: src.twilio_url, recording_sid: src.recording_sid, audio: src.audio, content_type: src.content_type, duration: src.duration, from_number: src.from_number, source_id: src.id });
+      console.log(`Published inbox message ${src.id} to section ${SECTIONS[d]}`);
       return twiml(res, audio('admin_published') + redirect('/admin-menu', { t }));
     }
   }
@@ -212,7 +219,7 @@ tw.all('/recording-status', async (req, res) => {
     const target = p.target;
     let section;
     if (target === 'inbox') section = 'inbox';
-    else if (SECTIONS[target] && adminOk(req)) section = target;
+    else if (SECTIONS[target] && adminOk(req)) section = SECTIONS[target];
     else return console.warn('recording-status: rejected target', target);
     const recUrl = String(p.RecordingUrl || '');
     if (!/^https:\/\/api\.twilio\.com\//.test(recUrl)) return console.warn('recording-status: bad url');
